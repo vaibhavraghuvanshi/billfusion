@@ -1,0 +1,49 @@
+# Invoice & Payment Tracker SAAS - Development Prompt
+
+## Project Brief
+Create a modern Invoice & Payment Tracker SAAS application for freelancers and small businesses using React.js, Tailwind CSS, and Firebase with glass-morphism UI design.
+
+## Tech Stack
+- **Frontend**: React 18, Tailwind CSS, PWA, React Router, React Hook Form, Framer Motion
+- **Backend**: Firebase (Auth, Firestore, Cloud Functions, Storage, FCM)
+- **Payments**: Stripe & Razorpay integration with webhook handling
+- **UI Theme**: Glass-morphism design with backdrop-blur effects
+
+## Core Features
+1. **Authentication**: Multi-provider login with business profile setup
+2. **Dashboard**: Glass cards showing revenue analytics, pending invoices, recent payments
+3. **Invoice Management**: Drag-drop builder, PDF generation, multi-currency, status tracking
+4. **Client Management**: Contact database, payment history, communication logs
+5. **Payment Processing**: Payment links, QR codes, real-time status updates
+6. **Analytics**: Revenue trends, aging reports, interactive charts
+7. **Notifications**: Push notifications for payments, email reminders
+8. **PWA**: Offline functionality, background sync, app installation
+
+## UI/UX Requirements
+- **Glass-morphism theme** with semi-transparent cards and backdrop-blur
+- **Color palette**: Blue-purple gradients, emerald success, rose errors
+- **Components**: Glass navigation, floating buttons, animated states, modal overlays
+- **Responsive design** for mobile-first approach
+
+## Database Structure
+- Users (profile, settings, subscription)
+- Invoices (details, client info, line items, payment status)
+- Clients (contact info, invoice history, payment records)
+- Payments (gateway data, transaction details, webhook info)
+
+## Key Integrations
+- **Stripe/Razorpay**: Payment processing with webhook status updates
+- **FCM**: Push notifications for payment alerts and reminders
+- **PDF Generation**: Invoice templates with custom branding
+- **Service Workers**: Offline invoice creation and background sync
+
+## Development Priority
+1. Firebase setup + Authentication + Glass UI foundation
+2. Invoice CRUD + Client management + Payment integration
+3. Analytics + Notifications + PWA features
+4. Testing + Optimization + Deployment
+
+## Monetization
+Freemium model: 5 free invoices → Pro ($15/month) → Business ($35/month) → Enterprise (custom)
+
+**Goal**: Build a production-ready SAAS with modern glass UI, real-time features, and robust payment processing in 8 weeks.
