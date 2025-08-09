@@ -53,31 +53,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (fbUser) => {
-      setLoading(true);
-      
-      if (fbUser) {
-        try {
-          await login(fbUser);
-        } catch (error) {
-          console.error("Auto-login failed:", error);
+    const initAuth = async () => {
+      try {
+        // Check if user is already logged in via session
+        const response = await apiRequest("GET", "/api/user");
+        const data = await response.json();
+        if (data.user) {
+          setUser(data.user);
         }
-      } else {
-        setUser(null);
-        setFirebaseUser(null);
+      } catch (error) {
+        // Not logged in, create demo user
+        try {
+          const demoUser = {
+            email: "demo@example.com",
+            uid: "demo-user-123",
+            displayName: "Demo User",
+            photoURL: null,
+          };
+          await login(demoUser as any);
+        } catch (loginError) {
+          console.error("Demo login failed:", loginError);
+        }
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
-    });
+    };
 
-    // Handle redirect result on app load
-    handleRedirectResult().then((result) => {
-      if (result?.user) {
-        login(result.user).catch(console.error);
-      }
-    }).catch(console.error);
-
-    return unsubscribe;
+    initAuth();
   }, []);
 
   return (

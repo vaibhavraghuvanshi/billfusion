@@ -20,11 +20,11 @@ export default function Clients() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const filteredClients = clientsData?.clients?.filter((client: any) => {
+  const filteredClients = (clientsData?.clients || []).filter((client: any) => {
     return client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
            client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
            (client.company && client.company.toLowerCase().includes(searchTerm.toLowerCase()));
-  }) || [];
+  });
 
   const handleEditClient = (client: any) => {
     setEditingClient(client);

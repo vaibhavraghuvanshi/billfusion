@@ -7,7 +7,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
-  updateUserStripeInfo(id: string, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User>;
+  updateUserRazorpayInfo(id: string, razorpayCustomerId: string, razorpaySubscriptionId: string): Promise<User>;
 
   // Clients
   getClientsByUserId(userId: string): Promise<Client[]>;
@@ -74,8 +74,8 @@ export class MemStorage implements IStorage {
     return updatedUser;
   }
 
-  async updateUserStripeInfo(id: string, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User> {
-    return this.updateUser(id, { stripeCustomerId, stripeSubscriptionId });
+  async updateUserRazorpayInfo(id: string, razorpayCustomerId: string, razorpaySubscriptionId: string): Promise<User> {
+    return this.updateUser(id, { razorpayCustomerId, razorpaySubscriptionId });
   }
 
   // Clients

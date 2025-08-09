@@ -175,7 +175,7 @@ export function InvoiceModal({ open, onOpenChange, invoice }: InvoiceModalProps)
                   <SelectValue placeholder="Select a client..." />
                 </SelectTrigger>
                 <SelectContent className="glass-dark border-glass-dark-border">
-                  {clientsData?.clients?.map((client: any) => (
+                  {(clientsData?.clients || []).map((client: any) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
                     </SelectItem>

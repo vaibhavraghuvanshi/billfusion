@@ -62,8 +62,9 @@ Preferred communication style: Simple, everyday language.
 - **Connect PG Simple**: PostgreSQL session store
 
 ### Payment Processing
-- **Stripe**: Payment processing with React Stripe.js integration
+- **Razorpay**: Payment processing with Razorpay integration for Indian market
 - **Webhook Support**: Payment status updates and subscription management
+- **Payment Verification**: Secure signature verification for payment confirmation
 
 ### Development & Deployment
 - **Replit**: Development environment with custom plugins

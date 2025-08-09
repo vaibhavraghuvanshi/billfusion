@@ -172,14 +172,14 @@ export default function Dashboard() {
                 </div>
 
                 <div className="space-y-4">
-                  {analytics?.recentInvoices?.length === 0 && (
+                  {(!analytics?.recentInvoices || analytics.recentInvoices.length === 0) && (
                     <div className="text-center py-8">
                       <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                       <p className="text-slate-400">No invoices yet. Create your first invoice to get started.</p>
                     </div>
                   )}
                   
-                  {analytics?.recentInvoices?.map((invoice: any) => (
+                  {(analytics?.recentInvoices || []).map((invoice: any) => (
                     <div key={invoice.id} className="glass-dark rounded-xl p-4 hover:bg-white/10 transition-all duration-200 cursor-pointer">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
@@ -287,7 +287,7 @@ export default function Dashboard() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {analytics?.recentClients?.map((client: any) => (
+                {(analytics?.recentClients || []).map((client: any) => (
                   <div key={client.id} className="glass-dark rounded-xl p-4 hover:bg-white/10 transition-all duration-200 cursor-pointer text-center">
                     <div className="w-16 h-16 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
                       <span className="text-lg font-bold">{getInitials(client.name)}</span>

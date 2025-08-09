@@ -14,8 +14,8 @@ export const users = pgTable("users", {
   businessAddress: text("business_address"),
   businessPhone: text("business_phone"),
   businessEmail: text("business_email"),
-  stripeCustomerId: text("stripe_customer_id"),
-  stripeSubscriptionId: text("stripe_subscription_id"),
+  razorpayCustomerId: text("razorpay_customer_id"),
+  razorpaySubscriptionId: text("razorpay_subscription_id"),
   subscriptionStatus: text("subscription_status").default("free"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -50,7 +50,7 @@ export const invoices = pgTable("invoices", {
   notes: text("notes"),
   items: jsonb("items").notNull(), // Array of invoice items
   paymentLink: text("payment_link"),
-  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  razorpayOrderId: text("razorpay_order_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -62,8 +62,8 @@ export const payments = pgTable("payments", {
   currency: text("currency").notNull(),
   status: text("status").notNull(), // pending, completed, failed
   paymentMethod: text("payment_method"),
-  stripePaymentIntentId: text("stripe_payment_intent_id"),
-  stripeChargeId: text("stripe_charge_id"),
+  razorpayPaymentId: text("razorpay_payment_id"),
+  razorpayOrderId: text("razorpay_order_id"),
   paidAt: timestamp("paid_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });

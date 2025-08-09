@@ -1,21 +1,26 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
-import Stripe from "stripe";
+import crypto from "crypto";
+import Razorpay from "razorpay";
 import { storage } from "./storage";
 import { insertClientSchema, insertInvoiceSchema, insertPaymentSchema } from "@shared/schema";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+// Extend Express Request to include session
+declare module "express-session" {
+  interface SessionData {
+    userId: string;
+  }
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || '',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || '',
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Auth middleware
-  const requireAuth = (req: any, res: any, next: any) => {
+  const requireAuth = (req: Request & { session: any }, res: any, next: any) => {
     if (!req.session?.userId) {
       return res.status(401).json({ message: "Authentication required" });
     }
@@ -175,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Payment routes
-  app.post("/api/create-payment-intent", requireAuth, async (req, res) => {
+  app.post("/api/create-payment-order", requireAuth, async (req, res) => {
     try {
       const { invoiceId } = req.body;
       const invoice = await storage.getInvoice(invoiceId);
@@ -184,35 +189,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Invoice not found" });
       }
 
-      const amount = Math.round(parseFloat(invoice.total) * 100); // Convert to cents
+      const amount = Math.round(parseFloat(invoice.total) * 100); // Convert to paise
       
-      const paymentIntent = await stripe.paymentIntents.create({
+      const order = await razorpay.orders.create({
         amount,
-        currency: invoice.currency.toLowerCase(),
-        metadata: {
+        currency: invoice.currency,
+        receipt: `invoice_${invoice.id}`,
+        notes: {
           invoiceId: invoice.id,
           userId: req.session.userId,
         },
       });
 
       await storage.updateInvoice(invoice.id, {
-        stripePaymentIntentId: paymentIntent.id,
+        razorpayOrderId: order.id,
       });
 
-      res.json({ clientSecret: paymentIntent.client_secret });
+      res.json({ 
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        keyId: process.env.RAZORPAY_KEY_ID 
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
-  // Stripe webhook
-  app.post("/api/webhooks/stripe", async (req, res) => {
+  // Razorpay webhook
+  app.post("/api/webhooks/razorpay", async (req, res) => {
     try {
       const event = req.body;
 
-      if (event.type === 'payment_intent.succeeded') {
-        const paymentIntent = event.data.object;
-        const { invoiceId } = paymentIntent.metadata;
+      if (event.event === 'payment.captured') {
+        const payment = event.payload.payment.entity;
+        const { invoiceId } = payment.notes;
 
         if (invoiceId) {
           await storage.updateInvoice(invoiceId, {
@@ -222,18 +233,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           await storage.createPayment({
             invoiceId,
-            amount: (paymentIntent.amount / 100).toString(),
-            currency: paymentIntent.currency.toUpperCase(),
+            amount: (payment.amount / 100).toString(),
+            currency: payment.currency.toUpperCase(),
             status: 'completed',
-            paymentMethod: 'stripe',
-            stripePaymentIntentId: paymentIntent.id,
-            stripeChargeId: paymentIntent.charges?.data[0]?.id,
+            paymentMethod: 'razorpay',
+            razorpayPaymentId: payment.id,
+            razorpayOrderId: payment.order_id,
             paidAt: new Date(),
           });
         }
       }
 
-      res.json({ received: true });
+      res.json({ status: 'ok' });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Verify payment
+  app.post("/api/verify-payment", requireAuth, async (req, res) => {
+    try {
+      const { razorpay_payment_id, razorpay_order_id, razorpay_signature, invoiceId } = req.body;
+      
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice || invoice.userId !== req.session.userId) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Verify signature
+      const body = razorpay_order_id + "|" + razorpay_payment_id;
+      const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+                                      .update(body.toString())
+                                      .digest('hex');
+
+      if (expectedSignature === razorpay_signature) {
+        // Payment is verified
+        await storage.updateInvoice(invoiceId, {
+          status: 'paid',
+          paidDate: new Date(),
+        });
+
+        await storage.createPayment({
+          invoiceId,
+          amount: invoice.total,
+          currency: invoice.currency,
+          status: 'completed',
+          paymentMethod: 'razorpay',
+          razorpayPaymentId: razorpay_payment_id,
+          razorpayOrderId: razorpay_order_id,
+          paidAt: new Date(),
+        });
+
+        res.json({ success: true, message: "Payment verified successfully" });
+      } else {
+        res.status(400).json({ success: false, message: "Invalid payment signature" });
+      }
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

@@ -43,12 +43,11 @@ export default function Invoices() {
     });
   };
 
-  const filteredInvoices = invoicesData?.invoices?.filter((invoice: any) => {
-    const matchesSearch = invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invoice.client?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredInvoices = (invoicesData?.invoices || []).filter((invoice: any) => {
+    const matchesSearch = invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || invoice.status === statusFilter;
     return matchesSearch && matchesStatus;
-  }) || [];
+  });
 
   if (isLoading) {
     return (
