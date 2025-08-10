@@ -1,105 +1,109 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
-  username: text("username").notNull(),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  avatarUrl: text("avatar_url"),
-  businessName: text("business_name"),
-  businessAddress: text("business_address"),
-  businessPhone: text("business_phone"),
-  businessEmail: text("business_email"),
-  razorpayCustomerId: text("razorpay_customer_id"),
-  razorpaySubscriptionId: text("razorpay_subscription_id"),
-  subscriptionStatus: text("subscription_status").default("free"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Firestore-compatible schema definitions using Zod
+export const userSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  username: z.string(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  avatarUrl: z.string().optional(),
+  businessName: z.string().optional(),
+  businessAddress: z.string().optional(),
+  businessPhone: z.string().optional(),
+  businessEmail: z.string().email().optional(),
+  razorpayCustomerId: z.string().optional(),
+  razorpaySubscriptionId: z.string().optional(),
+  subscriptionStatus: z.string().default("free"),
+  createdAt: z.date(),
+  updatedAt: z.date(),
 });
 
-export const clients = pgTable("clients", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  email: text("email").notNull(),
-  phone: text("phone"),
-  address: text("address"),
-  company: text("company"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+export const clientSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  company: z.string().optional(),
+  notes: z.string().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
 });
 
-export const invoices = pgTable("invoices", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  clientId: varchar("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
-  invoiceNumber: text("invoice_number").notNull(),
-  status: text("status").notNull().default("draft"), // draft, sent, paid, overdue, cancelled
-  currency: text("currency").notNull().default("USD"),
-  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
-  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0"),
-  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
-  issueDate: timestamp("issue_date").notNull(),
-  dueDate: timestamp("due_date").notNull(),
-  paidDate: timestamp("paid_date"),
-  notes: text("notes"),
-  items: jsonb("items").notNull(), // Array of invoice items
-  paymentLink: text("payment_link"),
-  razorpayOrderId: text("razorpay_order_id"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+export const invoiceSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  clientId: z.string(),
+  invoiceNumber: z.string(),
+  status: z.enum(["draft", "sent", "paid", "overdue", "cancelled"]).default("draft"),
+  currency: z.string().default("USD"),
+  subtotal: z.string(), // Store as string to avoid precision issues
+  taxAmount: z.string().default("0"),
+  total: z.string(),
+  issueDate: z.date(),
+  dueDate: z.date(),
+  paidDate: z.date().optional(),
+  notes: z.string().optional(),
+  items: z.array(z.object({
+    id: z.string(),
+    description: z.string(),
+    quantity: z.number(),
+    rate: z.number(),
+    amount: z.number(),
+  })),
+  paymentLink: z.string().optional(),
+  razorpayOrderId: z.string().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
 });
 
-export const payments = pgTable("payments", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  invoiceId: varchar("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  currency: text("currency").notNull(),
-  status: text("status").notNull(), // pending, completed, failed
-  paymentMethod: text("payment_method"),
-  razorpayPaymentId: text("razorpay_payment_id"),
-  razorpayOrderId: text("razorpay_order_id"),
-  paidAt: timestamp("paid_at"),
-  createdAt: timestamp("created_at").defaultNow(),
+export const paymentSchema = z.object({
+  id: z.string(),
+  invoiceId: z.string(),
+  amount: z.string(), // Store as string to avoid precision issues
+  currency: z.string(),
+  status: z.enum(["pending", "completed", "failed"]),
+  paymentMethod: z.string().optional(),
+  razorpayPaymentId: z.string().optional(),
+  razorpayOrderId: z.string().optional(),
+  paidAt: z.date().optional(),
+  createdAt: z.date(),
 });
 
-// Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({
+// Insert schemas (omit id and timestamps)
+export const insertUserSchema = userSchema.omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertClientSchema = createInsertSchema(clients).omit({
+export const insertClientSchema = clientSchema.omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+export const insertInvoiceSchema = invoiceSchema.omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertPaymentSchema = createInsertSchema(payments).omit({
+export const insertPaymentSchema = paymentSchema.omit({
   id: true,
   createdAt: true,
 });
 
 // Types
-export type User = typeof users.$inferSelect;
+export type User = z.infer<typeof userSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type Client = typeof clients.$inferSelect;
+export type Client = z.infer<typeof clientSchema>;
 export type InsertClient = z.infer<typeof insertClientSchema>;
-export type Invoice = typeof invoices.$inferSelect;
+export type Invoice = z.infer<typeof invoiceSchema>;
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
-export type Payment = typeof payments.$inferSelect;
+export type Payment = z.infer<typeof paymentSchema>;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 
 // Additional types for invoice items

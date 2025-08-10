@@ -12,7 +12,7 @@ export default function Clients() {
   const [editingClient, setEditingClient] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { data: clientsData, isLoading } = useQuery({
+  const { data: clientsData, isLoading } = useQuery<{ clients: any[] }>({
     queryKey: ["/api/clients"],
   });
 

@@ -14,7 +14,7 @@ export default function Invoices() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const { data: invoicesData, isLoading } = useQuery({
+  const { data: invoicesData, isLoading } = useQuery<{ invoices: any[] }>({
     queryKey: ["/api/invoices"],
   });
 

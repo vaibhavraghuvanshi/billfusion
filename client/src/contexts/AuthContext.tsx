@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { User as FirebaseUser } from "firebase/auth";
-import { auth, handleRedirectResult } from "@/lib/firebase";
+import { User as FirebaseUser, onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
+import { auth } from "../lib/firebase";
 import { apiRequest } from "@/lib/queryClient";
 import { User } from "@shared/schema";
 
@@ -19,6 +19,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  /**
+   * Login and sync user to backend
+   */
   const login = async (fbUser: FirebaseUser) => {
     try {
       const response = await apiRequest("POST", "/api/auth/login", {
@@ -28,11 +31,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: fbUser.displayName,
           email: fbUser.email,
           photoURL: fbUser.photoURL,
-          firstName: fbUser.displayName?.split(' ')[0] || '',
-          lastName: fbUser.displayName?.split(' ')[1] || '',
+          firstName: fbUser.displayName?.split(" ")[0] || "",
+          lastName: fbUser.displayName?.split(" ")[1] || "",
         },
       });
-      
+
       const data = await response.json();
       setUser(data.user);
       setFirebaseUser(fbUser);
@@ -42,39 +45,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  /**
+   * Logout from both Firebase and backend
+   */
   const logout = async () => {
     try {
       await apiRequest("POST", "/api/auth/logout");
-      setUser(null);
-      setFirebaseUser(null);
+      await signOut(auth);
     } catch (error) {
       console.error("Logout error:", error);
+    } finally {
+      setUser(null);
+      setFirebaseUser(null);
     }
   };
 
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Check if user is already logged in via session
+        // 1️⃣ First, check if there’s a redirect result from Firebase (Google, etc.)
+        const redirectResult = await getRedirectResult(auth);
+        if (redirectResult?.user) {
+          await login(redirectResult.user);
+          setLoading(false);
+          return;
+        }
+
+        // 2️⃣ Listen to Firebase auth changes
+        const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+          if (fbUser) {
+            await login(fbUser);
+          } else {
+            setUser(null);
+            setFirebaseUser(null);
+          }
+          setLoading(false);
+        });
+
+        // 3️⃣ Check backend session if Firebase user isn’t set yet
         const response = await apiRequest("GET", "/api/user");
         const data = await response.json();
         if (data.user) {
           setUser(data.user);
         }
+
+        return unsubscribe;
       } catch (error) {
-        // Not logged in, create demo user
-        try {
-          const demoUser = {
-            email: "demo@example.com",
-            uid: "demo-user-123",
-            displayName: "Demo User",
-            photoURL: null,
-          };
-          await login(demoUser as any);
-        } catch (loginError) {
-          console.error("Demo login failed:", loginError);
-        }
-      } finally {
+        console.error("Auth init error:", error);
         setLoading(false);
       }
     };
@@ -91,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;

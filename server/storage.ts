@@ -1,5 +1,6 @@
 import { type User, type InsertUser, type Client, type InsertClient, type Invoice, type InsertInvoice, type Payment, type InsertPayment } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { FirestoreStorage } from './firestoreStorage';
 
 export interface IStorage {
   // Users
@@ -180,4 +181,32 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Check if Firebase credentials are available
+const hasFirebaseCredentials = () => {
+  return !!(
+    process.env.FIREBASE_SERVICE_ACCOUNT ||
+    (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL)
+  );
+};
+
+// Initialize storage based on environment and credentials
+let storage: IStorage;
+
+if (process.env.NODE_ENV === 'test' || !hasFirebaseCredentials()) {
+  storage = new MemStorage();
+  console.log('⚠️  Using in-memory storage (data will not persist)');
+  if (!hasFirebaseCredentials()) {
+    console.log('   To use Firestore, configure Firebase credentials (see FIRESTORE_SETUP.md)');
+  }
+} else {
+  try {
+    // Only import and initialize Firestore if credentials are available
+    storage = new FirestoreStorage();
+    console.log('✅ Using Firestore for data persistence');
+  } catch (error) {
+    console.warn('⚠️  Failed to initialize Firestore, falling back to in-memory storage:', error);
+    storage = new MemStorage();
+  }
+}
+
+export { storage };

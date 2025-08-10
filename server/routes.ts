@@ -6,7 +6,7 @@ import { createServer, type Server } from "http";
 import crypto from "crypto";
 import Razorpay from "razorpay";
 import { storage } from "./storage";
-import { insertClientSchema, insertInvoiceSchema, insertPaymentSchema } from "@shared/schema";
+import { insertClientSchema, insertInvoiceSchema, insertPaymentSchema, type Invoice } from "@shared/schema";
 
 // Extend Express Request to include session
 declare module "express-session" {
@@ -43,6 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: userData.firstName || '',
           lastName: userData.lastName || '',
           avatarUrl: userData.photoURL || '',
+          subscriptionStatus: "free",
         });
       }
 
@@ -61,7 +62,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/user", requireAuth, async (req, res) => {
     try {
-      const user = await storage.getUser(req.session.userId);
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found in session" });
+      }
+      const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -73,8 +78,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/user", requireAuth, async (req, res) => {
     try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found in session" });
+      }
       const updates = req.body;
-      const user = await storage.updateUser(req.session.userId, updates);
+      const user = await storage.updateUser(userId, updates);
       res.json({ user });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -84,7 +93,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Client routes
   app.get("/api/clients", requireAuth, async (req, res) => {
     try {
-      const clients = await storage.getClientsByUserId(req.session.userId);
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found in session" });
+      }
+      const clients = await storage.getClientsByUserId(userId);
       res.json({ clients });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -128,7 +141,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Invoice routes
   app.get("/api/invoices", requireAuth, async (req, res) => {
     try {
-      const invoices = await storage.getInvoicesByUserId(req.session.userId);
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found in session" });
+      }
+      const invoices = await storage.getInvoicesByUserId(userId);
       res.json({ invoices });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -200,7 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         receipt: `invoice_${invoice.id}`,
         notes: {
           invoiceId: invoice.id,
-          userId: req.session.userId,
+          userId: req.session.userId || '',
         },
       });
 
@@ -299,20 +316,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard analytics
   app.get("/api/analytics", requireAuth, async (req, res) => {
     try {
-      const invoices = await storage.getInvoicesByUserId(req.session.userId);
-      const clients = await storage.getClientsByUserId(req.session.userId);
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found in session" });
+      }
+      const invoices = await storage.getInvoicesByUserId(userId);
+      const clients = await storage.getClientsByUserId(userId);
 
       const totalRevenue = invoices
-        .filter(inv => inv.status === 'paid')
-        .reduce((sum, inv) => sum + parseFloat(inv.total), 0);
+        .filter((inv: Invoice) => inv.status === 'paid')
+        .reduce((sum: number, inv: Invoice) => sum + parseFloat(inv.total), 0);
 
       const pendingAmount = invoices
-        .filter(inv => inv.status === 'sent')
-        .reduce((sum, inv) => sum + parseFloat(inv.total), 0);
+        .filter((inv: Invoice) => inv.status === 'sent')
+        .reduce((sum: number, inv: Invoice) => sum + parseFloat(inv.total), 0);
 
       const overdueAmount = invoices
-        .filter(inv => inv.status === 'overdue')
-        .reduce((sum, inv) => sum + parseFloat(inv.total), 0);
+        .filter((inv: Invoice) => inv.status === 'overdue')
+        .reduce((sum: number, inv: Invoice) => sum + parseFloat(inv.total), 0);
 
       const analytics = {
         totalRevenue,

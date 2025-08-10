@@ -1,4 +1,15 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import type { 
+  ClientsResponse, 
+  InvoicesResponse, 
+  AnalyticsResponse,
+  AuthResponse,
+  InvoiceResponse,
+  PaymentsResponse,
+  PaymentOrderResponse,
+  VerifyPaymentResponse,
+  SuccessResponse
+} from "@shared/apiTypes";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {

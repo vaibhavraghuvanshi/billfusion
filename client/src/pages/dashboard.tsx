@@ -26,7 +26,14 @@ export default function Dashboard() {
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [clientModalOpen, setClientModalOpen] = useState(false);
 
-  const { data: analytics, isLoading } = useQuery({
+  const { data: analytics, isLoading } = useQuery<{
+    totalRevenue: number;
+    totalInvoices: number;
+    pendingInvoices: number;
+    totalClients: number;
+    recentInvoices: any[];
+    recentClients: any[];
+  }>({
     queryKey: ["/api/analytics"],
   });
 

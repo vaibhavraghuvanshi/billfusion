@@ -1,10 +1,21 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,15 +26,20 @@ import { z } from "zod";
 import { X, Plus, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
+// Extended schema for frontend validation
 const invoiceFormSchema = insertInvoiceSchema.extend({
   clientId: z.string().min(1, "Client is required"),
-  items: z.array(z.object({
-    id: z.string(),
-    description: z.string().min(1, "Description is required"),
-    quantity: z.number().min(1, "Quantity must be at least 1"),
-    rate: z.number().min(0, "Rate must be positive"),
-    amount: z.number(),
-  })).min(1, "At least one item is required"),
+  items: z
+    .array(
+      z.object({
+        id: z.string(),
+        description: z.string().min(1, "Description is required"),
+        quantity: z.number().min(1, "Quantity must be at least 1"),
+        rate: z.number().min(0, "Rate must be positive"),
+        amount: z.number(),
+      })
+    )
+    .min(1, "At least one item is required"),
 });
 
 type InvoiceFormData = z.infer<typeof invoiceFormSchema>;
@@ -38,11 +54,13 @@ export function InvoiceModal({ open, onOpenChange, invoice }: InvoiceModalProps)
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [items, setItems] = useState<InvoiceItem[]>([
-    { id: "1", description: "", quantity: 1, rate: 0, amount: 0 }
-  ]);
 
-  const { data: clientsData } = useQuery({
+  const [items, setItems] = useState<InvoiceItem[]>([
+    { id: "1", description: "", quantity: 1, rate: 0, amount: 0 },
+  ]);
+  const [currency, setCurrency] = useState("USD");
+
+  const { data: clientsData } = useQuery<{ clients: any[] }>({
     queryKey: ["/api/clients"],
     enabled: open,
   });
@@ -66,8 +84,10 @@ export function InvoiceModal({ open, onOpenChange, invoice }: InvoiceModalProps)
   });
 
   const createInvoiceMutation = useMutation({
-    mutationFn: (data: InvoiceFormData) =>
-      apiRequest("POST", "/api/invoices", data),
+    mutationFn: async (data: InvoiceFormData) => {
+      const response = await apiRequest("POST", "/api/invoices", data);
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
@@ -88,41 +108,42 @@ export function InvoiceModal({ open, onOpenChange, invoice }: InvoiceModalProps)
     },
   });
 
+  const currencyFormatter = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: currency,
+  });
+
   const addItem = () => {
-    const newItem: InvoiceItem = {
-      id: Date.now().toString(),
-      description: "",
-      quantity: 1,
-      rate: 0,
-      amount: 0,
-    };
-    setItems([...items, newItem]);
+    setItems((prev) => [
+      ...prev,
+      { id: Date.now().toString(), description: "", quantity: 1, rate: 0, amount: 0 },
+    ]);
   };
 
   const removeItem = (id: string) => {
-    if (items.length > 1) {
-      setItems(items.filter(item => item.id !== id));
-    }
+    setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const updateItem = (id: string, field: keyof InvoiceItem, value: any) => {
-    setItems(items.map(item => {
-      if (item.id === id) {
-        const updatedItem = { ...item, [field]: value };
-        if (field === 'quantity' || field === 'rate') {
-          updatedItem.amount = updatedItem.quantity * updatedItem.rate;
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          const updatedItem = { ...item, [field]: value };
+          if (field === "quantity" || field === "rate") {
+            updatedItem.amount = updatedItem.quantity * updatedItem.rate;
+          }
+          return updatedItem;
         }
-        return updatedItem;
-      }
-      return item;
-    }));
+        return item;
+      })
+    );
   };
 
   const calculateTotal = () => {
     const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-    const taxAmount = subtotal * 0; // No tax for now
+    const taxAmount = 0; // No tax logic yet
     const total = subtotal + taxAmount;
-    
+
     form.setValue("subtotal", subtotal.toString());
     form.setValue("taxAmount", taxAmount.toString());
     form.setValue("total", total.toString());
@@ -134,17 +155,34 @@ export function InvoiceModal({ open, onOpenChange, invoice }: InvoiceModalProps)
   }, [items]);
 
   const onSubmit = (data: InvoiceFormData) => {
-    const invoiceData = {
+    createInvoiceMutation.mutate({
       ...data,
-      items: items,
+      items,
+      currency,
       userId: user?.id || "",
-    };
-    createInvoiceMutation.mutate(invoiceData);
+    });
+  };
+
+  const handleSaveDraft = () => {
+    form.setValue("status", "draft");
+    form.handleSubmit(onSubmit)();
+  };
+
+  const handleSendInvoice = () => {
+    form.setValue("status", "sent");
+    form.handleSubmit(onSubmit)();
+  };
+
+  const handlePreviewPDF = () => {
+    // Placeholder: Replace with real PDF preview logic
+    toast({
+      title: "Preview PDF",
+      description: "This will generate and preview the invoice PDF.",
+    });
   };
 
   const generateInvoiceNumber = () => {
-    const number = `INV-${Date.now().toString().slice(-6)}`;
-    form.setValue("invoiceNumber", number);
+    form.setValue("invoiceNumber", `INV-${Date.now().toString().slice(-6)}`);
   };
 
   useEffect(() => {
@@ -157,24 +195,21 @@ export function InvoiceModal({ open, onOpenChange, invoice }: InvoiceModalProps)
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto glass border-glass-border">
         <DialogHeader className="border-b border-slate-600 pb-4">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold gradient-text">
-              Create New Invoice
-            </DialogTitle>
-          </div>
+          <DialogTitle className="text-2xl font-bold gradient-text">
+            Create New Invoice
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6">
+          {/* Client and Invoice Number */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <Label htmlFor="clientId" className="text-sm font-medium text-slate-300">
-                Client
-              </Label>
+              <Label>Client</Label>
               <Select onValueChange={(value) => form.setValue("clientId", value)}>
-                <SelectTrigger className="glass-dark border-0 focus:ring-2 focus:ring-purple-500">
+                <SelectTrigger className="glass-dark border-0">
                   <SelectValue placeholder="Select a client..." />
                 </SelectTrigger>
-                <SelectContent className="glass-dark border-glass-dark-border">
+                <SelectContent>
                   {(clientsData?.clients || []).map((client: any) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
@@ -183,115 +218,83 @@ export function InvoiceModal({ open, onOpenChange, invoice }: InvoiceModalProps)
                 </SelectContent>
               </Select>
             </div>
-
             <div>
-              <Label htmlFor="invoiceNumber" className="text-sm font-medium text-slate-300">
-                Invoice Number
-              </Label>
-              <Input
-                {...form.register("invoiceNumber")}
-                className="glass-dark border-0 focus:ring-2 focus:ring-purple-500"
-                placeholder="INV-001"
-              />
+              <Label>Invoice Number</Label>
+              <Input {...form.register("invoiceNumber")} />
             </div>
           </div>
 
+          {/* Dates */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <Label htmlFor="issueDate" className="text-sm font-medium text-slate-300">
-                Issue Date
-              </Label>
-              <Input
-                type="date"
-                {...form.register("issueDate", { valueAsDate: true })}
-                className="glass-dark border-0 focus:ring-2 focus:ring-purple-500"
-              />
+              <Label>Issue Date</Label>
+              <Input type="date" {...form.register("issueDate", { valueAsDate: true })} />
             </div>
-
             <div>
-              <Label htmlFor="dueDate" className="text-sm font-medium text-slate-300">
-                Due Date
-              </Label>
-              <Input
-                type="date"
-                {...form.register("dueDate", { valueAsDate: true })}
-                className="glass-dark border-0 focus:ring-2 focus:ring-purple-500"
-              />
+              <Label>Due Date</Label>
+              <Input type="date" {...form.register("dueDate", { valueAsDate: true })} />
             </div>
           </div>
 
+          {/* Items */}
           <div>
-            <Label className="text-sm font-medium text-slate-300 mb-4 block">
-              Invoice Items
-            </Label>
+            <Label>Invoice Items</Label>
             <div className="glass-dark rounded-xl p-4 space-y-3">
-              {items.map((item, index) => (
+              {items.map((item) => (
                 <div key={item.id} className="flex items-center space-x-3 p-3 glass rounded-lg">
-                  <div className="flex-1">
-                    <Input
-                      value={item.description}
-                      onChange={(e) => updateItem(item.id, "description", e.target.value)}
-                      placeholder="Description"
-                      className="bg-transparent border-0 focus:ring-0 p-0 text-white placeholder-slate-400"
-                    />
-                  </div>
-                  <div className="w-20">
-                    <Input
-                      type="number"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(item.id, "quantity", parseFloat(e.target.value) || 0)}
-                      placeholder="Qty"
-                      className="bg-transparent border-0 focus:ring-0 p-0 text-center text-white"
-                    />
-                  </div>
-                  <div className="w-24">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={item.rate}
-                      onChange={(e) => updateItem(item.id, "rate", parseFloat(e.target.value) || 0)}
-                      placeholder="Rate"
-                      className="bg-transparent border-0 focus:ring-0 p-0 text-right text-white"
-                    />
-                  </div>
-                  <div className="w-24 text-right font-semibold text-white">
-                    ${item.amount.toFixed(2)}
+                  <Input
+                    value={item.description}
+                    onChange={(e) => updateItem(item.id, "description", e.target.value)}
+                    placeholder="Description"
+                  />
+                  <Input
+                    type="number"
+                    value={item.quantity}
+                    onChange={(e) => updateItem(item.id, "quantity", parseFloat(e.target.value) || 0)}
+                    placeholder="Qty"
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={item.rate}
+                    onChange={(e) => updateItem(item.id, "rate", parseFloat(e.target.value) || 0)}
+                    placeholder="Rate"
+                  />
+                  <div className="w-24 text-right font-semibold">
+                    {currencyFormatter.format(item.amount)}
                   </div>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     onClick={() => removeItem(item.id)}
-                    className="text-red-400 hover:text-red-300"
                     disabled={items.length === 1}
                   >
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
               ))}
-              
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={addItem}
-                className="text-purple-400 hover:text-purple-300 font-medium flex items-center space-x-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Item</span>
+              <Button type="button" variant="ghost" onClick={addItem}>
+                <Plus className="w-4 h-4" /> Add Item
               </Button>
             </div>
           </div>
 
+          {/* Currency and Total */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <Label htmlFor="currency" className="text-sm font-medium text-slate-300">
-                Currency
-              </Label>
-              <Select defaultValue="USD" onValueChange={(value) => form.setValue("currency", value)}>
-                <SelectTrigger className="glass-dark border-0 focus:ring-2 focus:ring-purple-500">
+              <Label>Currency</Label>
+              <Select
+                value={currency}
+                onValueChange={(value) => {
+                  setCurrency(value);
+                  form.setValue("currency", value);
+                }}
+              >
+                <SelectTrigger className="glass-dark border-0">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="glass-dark border-glass-dark-border">
+                <SelectContent>
                   <SelectItem value="USD">USD - US Dollar</SelectItem>
                   <SelectItem value="EUR">EUR - Euro</SelectItem>
                   <SelectItem value="GBP">GBP - British Pound</SelectItem>
@@ -299,56 +302,31 @@ export function InvoiceModal({ open, onOpenChange, invoice }: InvoiceModalProps)
                 </SelectContent>
               </Select>
             </div>
-
             <div className="flex flex-col justify-end">
-              <div className="glass-dark rounded-xl p-4">
-                <div className="text-right">
-                  <div className="text-lg font-semibold text-white">
-                    Total: <span className="gradient-text">${form.watch("total")}</span>
-                  </div>
+              <div className="glass-dark rounded-xl p-4 text-right">
+                <div className="text-lg font-semibold">
+                  Total: <span className="gradient-text">{currencyFormatter.format(Number(form.watch("total")))}</span>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Notes */}
           <div>
-            <Label htmlFor="notes" className="text-sm font-medium text-slate-300">
-              Notes
-            </Label>
-            <Textarea
-              {...form.register("notes")}
-              className="glass-dark border-0 focus:ring-2 focus:ring-purple-500 h-24 resize-none"
-              placeholder="Additional notes or payment instructions..."
-            />
+            <Label>Notes</Label>
+            <Textarea {...form.register("notes")} placeholder="Additional notes..." />
           </div>
 
+          {/* Actions */}
           <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-6">
-            <Button
-              type="button"
-              variant="ghost"
-              className="flex-1 glass-dark hover:bg-white/20"
-              onClick={() => {
-                form.setValue("status", "draft");
-                form.handleSubmit(onSubmit)();
-              }}
-            >
+            <Button type="button" variant="ghost" onClick={handleSaveDraft}>
               Save as Draft
             </Button>
-            <Button
-              type="submit"
-              className="flex-1 gradient-bg hover:opacity-90"
-              disabled={createInvoiceMutation.isPending}
-              onClick={() => form.setValue("status", "sent")}
-            >
+            <Button type="button" className="gradient-bg" onClick={handleSendInvoice}>
               {createInvoiceMutation.isPending ? "Creating..." : "Send Invoice"}
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="flex-1 glass-dark hover:bg-white/20 flex items-center justify-center space-x-2"
-            >
-              <FileText className="w-4 h-4" />
-              <span>Preview PDF</span>
+            <Button type="button" variant="ghost" onClick={handlePreviewPDF}>
+              <FileText className="w-4 h-4" /> Preview PDF
             </Button>
           </div>
         </form>
