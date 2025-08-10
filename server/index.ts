@@ -11,7 +11,7 @@ app.use(express.urlencoded({ extended: false }));
 // Session configuration
 const MemoryStoreSession = MemoryStore(session);
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key-here',
+  secret: process.env.SESSION_SECRET || 'app-secret',
   resave: false,
   saveUninitialized: false,
   store: new MemoryStoreSession({
@@ -79,11 +79,8 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  server.listen(port, 'localhost', () => {
     log(`serving on port ${port}`);
+    console.log('Server running on http://localhost:5000');
   });
 })();

@@ -4,11 +4,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { GlassCard } from "@/components/GlassCard";
 import { Receipt } from "lucide-react";
 import { FaGoogle, FaGithub } from "react-icons/fa";
-import { signInWithGoogle, signInWithGitHub, signInWithEmail, signUpWithEmail } from "@/lib/firebase";
+import {
+  signInWithGoogle,
+  signInWithGitHub,
+  signInWithEmail,
+  signUpWithEmail
+} from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
@@ -29,10 +33,7 @@ export default function Auth() {
 
   const form = useForm<AuthFormData>({
     resolver: zodResolver(authSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
   });
 
   // Redirect if already authenticated
@@ -41,6 +42,15 @@ export default function Auth() {
     return null;
   }
 
+  const showAuthError = (error: any) => {
+    toast({
+      title: "Authentication Error",
+      description: error?.message || "Something went wrong",
+      variant: "destructive",
+    });
+  };
+
+  // Email/Password handler
   const handleEmailAuth = async (data: AuthFormData) => {
     setLoading(true);
     try {
@@ -51,58 +61,42 @@ export default function Auth() {
       }
       navigate("/dashboard");
     } catch (error: any) {
-      toast({
-        title: "Authentication Error",
-        description: error.message || "Something went wrong",
-        variant: "destructive",
-      });
+      showAuthError(error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  // Generic social login handler
+  const handleProviderSignIn = async (providerFn: () => Promise<void>) => {
     try {
-      await signInWithGoogle();
+      await providerFn();
+      navigate("/dashboard");
     } catch (error: any) {
-      toast({
-        title: "Authentication Error",
-        description: error.message || "Something went wrong",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleGitHubSignIn = async () => {
-    try {
-      await signInWithGitHub();
-    } catch (error: any) {
-      toast({
-        title: "Authentication Error",
-        description: error.message || "Something went wrong",
-        variant: "destructive",
-      });
+      showAuthError(error);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <GlassCard className="w-full max-w-md p-8">
+        {/* Logo / Title */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 gradient-bg rounded-2xl mb-4 animate-glow">
             <Receipt className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold gradient-text mb-2">Welcome to InvoiceFlow</h1>
           <p className="text-slate-300">
-            {authMode === "signin" 
-              ? "Sign in to manage your invoices and payments" 
+            {authMode === "signin"
+              ? "Sign in to manage your invoices and payments"
               : "Create your account to get started"}
           </p>
         </div>
 
         <div className="space-y-4">
+          {/* Social Logins */}
           <Button
-            onClick={handleGoogleSignIn}
+            onClick={() => handleProviderSignIn(signInWithGoogle)}
             className="w-full glass-dark rounded-xl p-4 flex items-center justify-center space-x-3 hover:bg-white/20 transition-all duration-200 transform hover:scale-105"
             variant="ghost"
           >
@@ -111,7 +105,7 @@ export default function Auth() {
           </Button>
 
           <Button
-            onClick={handleGitHubSignIn}
+            onClick={() => handleProviderSignIn(signInWithGitHub)}
             className="w-full glass-dark rounded-xl p-4 flex items-center justify-center space-x-3 hover:bg-white/20 transition-all duration-200 transform hover:scale-105"
             variant="ghost"
           >
@@ -119,6 +113,7 @@ export default function Auth() {
             <span className="font-medium">Continue with GitHub</span>
           </Button>
 
+          {/* Divider */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-600"></div>
@@ -128,6 +123,7 @@ export default function Auth() {
             </div>
           </div>
 
+          {/* Email/Password Form */}
           <form onSubmit={form.handleSubmit(handleEmailAuth)} className="space-y-4">
             <div>
               <Input
@@ -162,14 +158,15 @@ export default function Auth() {
               disabled={loading}
               className="w-full gradient-bg rounded-xl py-3 font-semibold text-white hover:opacity-90 transition-all duration-200 transform hover:scale-105 animate-glow"
             >
-              {loading 
-                ? "Please wait..." 
-                : authMode === "signin" 
-                  ? "Sign In" 
+              {loading
+                ? "Please wait..."
+                : authMode === "signin"
+                  ? "Sign In"
                   : "Sign Up"}
             </Button>
           </form>
 
+          {/* Switch Mode */}
           <p className="text-center text-sm text-slate-400">
             {authMode === "signin" ? "Don't have an account?" : "Already have an account?"}{" "}
             <button

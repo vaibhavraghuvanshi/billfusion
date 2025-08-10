@@ -9,6 +9,7 @@ import Auth from "@/pages/auth";
 import Invoices from "@/pages/invoices";
 import Clients from "@/pages/clients";
 import NotFound from "@/pages/not-found";
+import AnalyticsPage from "./pages/AnalyticsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -45,6 +46,11 @@ function Router() {
       <Route path="/clients">
         <ProtectedRoute>
           <Clients />
+        </ProtectedRoute>
+      </Route>
+       <Route path="/analytics">
+        <ProtectedRoute>
+          <AnalyticsPage />
         </ProtectedRoute>
       </Route>
       <Route path="/">

@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config({ path: './server/.env' });
+
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
@@ -262,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verify signature
       const body = razorpay_order_id + "|" + razorpay_payment_id;
-      const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
                                       .update(body.toString())
                                       .digest('hex');
 
